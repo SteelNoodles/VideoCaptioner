@@ -22,25 +22,12 @@ from app.view.batch_process_interface import BatchProcessInterface
 from app.view.home_interface import HomeInterface
 from app.view.setting_interface import SettingInterface
 from app.view.subtitle_style_interface import SubtitleStyleInterface
+from app.view.video_silcer_interface import VideoSliceInterface
 
 from qfluentwidgets import FluentStyleSheet, PushButton, TextEdit, isDarkTheme
 
 
 LOGO_PATH = ASSETS_PATH / "logo.png"
-
-from PyQt5.QtWidgets import QSizePolicy, QStackedWidget, QVBoxLayout, QWidget
-
-class VideoSilcerInterface(QWidget):
-    def __init__(self, parent=None):
-        super().__init__(parent)
-
-        # 设置对象名称和样式
-        self.setObjectName("VideoSilcerInterface")
-        self.setStyleSheet(
-            """
-            VideoSilcerInterface{background: white}
-        """
-        )
 
 class MainWindow(FluentWindow):
     def __init__(self):
@@ -52,7 +39,7 @@ class MainWindow(FluentWindow):
         self.settingInterface = SettingInterface(self)
         self.subtitleStyleInterface = SubtitleStyleInterface(self)
         self.batchProcessInterface = BatchProcessInterface(self)
-        self.videoSilcerInterface = VideoSilcerInterface(self)
+        self.videoSilcerInterface = VideoSliceInterface(self)
 
         # 初始化版本检查器
         self.versionChecker = VersionChecker()
@@ -77,9 +64,9 @@ class MainWindow(FluentWindow):
         """初始化导航栏"""
         # 添加导航项
         self.addSubInterface(self.homeInterface, FIF.HOME, self.tr("主页"))
+        self.addSubInterface(self.videoSilcerInterface, FIF.PLAY, self.tr("视频切片"))
         self.addSubInterface(self.batchProcessInterface, FIF.VIDEO, self.tr("批量处理"))
         self.addSubInterface(self.subtitleStyleInterface, FIF.FONT, self.tr("字幕样式"))
-        self.addSubInterface(self.videoSilcerInterface, FIF.PLAY, self.tr("视频切片"))
 
         self.navigationInterface.addSeparator()
 
