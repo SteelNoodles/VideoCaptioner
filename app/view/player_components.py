@@ -7,8 +7,10 @@ from PyQt5.QtCore import Qt, QPoint
 
 class HoverSlider(QSlider):
     """自定义带悬停气泡的滑块组件"""
+
     def __init__(self, orientation, parent=None):
         super().__init__(orientation, parent)
+
         # tooltip_label无父对象, 浮动于桌面
         self.tooltip_label = QLabel(None, flags=Qt.ToolTip)
         self.tooltip_label.setStyleSheet(
@@ -16,13 +18,14 @@ class HoverSlider(QSlider):
             "border-radius: 4px; padding:2px 10px; font-size: 13px;"
         )
         self.tooltip_label.hide()
+
         self.setMouseTracking(True)
         self.duration = 0
-        self.format_time = lambda ms: ms
+        self.format_time = None  # ⬅️ 修复点：不要覆盖格式函数
         self.last_show_pos = None
 
     def set_duration(self, duration):
-        """设置视频总时长"""
+        """设置视频总时长（毫秒）"""
         self.duration = duration
 
     def mouseMoveEvent(self, event):
@@ -31,14 +34,19 @@ class HoverSlider(QSlider):
         if not self.duration:
             self.tooltip_label.hide()
             return
+
         x = event.pos().x()
         slider_width = self.width()
-        relpos = x / slider_width
-        relpos = max(0, min(1, relpos))
+        relpos = max(0, min(1, x / slider_width))
         ms = int(relpos * self.duration)
-        text = self.format_time(ms) if callable(self.format_time) else str(ms)
 
-        # 计算Tooltip的位置（全局）
+        # 使用格式化函数（如果提供）
+        if self.format_time:
+            text = self.format_time(ms)
+        else:
+            text = str(ms)
+
+        # Tooltip
         global_p = self.mapToGlobal(QPoint(x, 0))
         label_width = self.tooltip_label.fontMetrics().boundingRect(text).width() + 18
         label_height = 28
@@ -51,26 +59,21 @@ class HoverSlider(QSlider):
         self.tooltip_label.show()
 
     def leaveEvent(self, event):
-        """鼠标离开时隐藏悬浮提示"""
         self.tooltip_label.hide()
         super().leaveEvent(event)
-    
+
     def mousePressEvent(self, event):
-        """鼠标点击时设置滑块位置"""
         super().mousePressEvent(event)
-        # 计算点击位置对应的滑块值
+
         if self.orientation() == Qt.Horizontal:
             pos = event.pos().x()
             slider_width = self.width()
         else:
             pos = event.pos().y()
             slider_width = self.height()
-        
-        relpos = pos / slider_width
-        relpos = max(0, min(1, relpos))
+
+        relpos = max(0, min(1, pos / slider_width))
         value = self.minimum() + int(relpos * (self.maximum() - self.minimum()))
-        
-        # 设置滑块位置
         self.setValue(value)
 
 
@@ -117,8 +120,6 @@ class VideoSlicerUI(QWidget):
 
         # 切片区
         tag_layout = QHBoxLayout()
-        self.lbl_status = QLabel("状态: 等待操作")
-        tag_layout.addWidget(self.lbl_status)
         self.btn_mark_in = QPushButton("标记时间戳(❤️/切片)")
         tag_layout.addWidget(self.btn_mark_in)
         self.btn_export = QPushButton("导出选中切片")
@@ -126,6 +127,12 @@ class VideoSlicerUI(QWidget):
         tag_layout.addWidget(self.btn_export)
         tag_layout.addStretch()
         lower_layout.addLayout(tag_layout, stretch=6)
+
+        status_layout = QVBoxLayout()
+        self.lbl_status = QLabel("状态: 等待操作")
+        status_layout.addWidget(self.lbl_status)
+        status_layout.addStretch()
+        lower_layout.addLayout(status_layout, stretch=6)
 
         main_layout.addLayout(lower_layout)
 

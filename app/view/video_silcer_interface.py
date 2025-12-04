@@ -46,12 +46,15 @@ class HoverSlider(QSlider):
         if not self.duration:
             self.tooltip_label.hide()
             return
+
         x = event.pos().x()
         slider_width = self.width()
         relpos = x / slider_width
         relpos = max(0, min(1, relpos))
         ms = int(relpos * self.duration)
-        text = self.format_time(ms) if callable(self.format_time) else str(ms)
+
+        # 🔥 强制转str，避免 int 导致 boundingRect 报错
+        text = str(self.format_time(ms)) if callable(self.format_time) else str(ms)
 
         # 计算Tooltip的位置（全局）
         global_p = self.mapToGlobal(QPoint(x, 0))
@@ -253,8 +256,6 @@ class VideoSliceInterface(QWidget):
 
         # 切片区
         tag_layout = QHBoxLayout()
-        self.lbl_status = BodyLabel("状态: 等待操作")
-        tag_layout.addWidget(self.lbl_status)
         self.btn_mark_in = PrimaryPushButton("标记时间戳(❤️/切片)")
         tag_layout.addWidget(self.btn_mark_in)
 
@@ -263,8 +264,16 @@ class VideoSliceInterface(QWidget):
         tag_layout.addWidget(self.btn_export)
         tag_layout.addStretch()
         lower_layout.addLayout(tag_layout, stretch=6)
+        # top_layout.addLayout(tag_layout, stretch=6)
+
+        status_layout = QHBoxLayout()
+        self.lbl_status = BodyLabel("状态: 等待操作")
+        status_layout.addWidget(self.lbl_status)
+        status_layout.addStretch()
 
         main_layout.addLayout(lower_layout)
+        main_layout.addLayout(status_layout)
+
 
         # (4) 切片列表（带勾选）
         self.segment_list = ListWidget()
@@ -281,6 +290,7 @@ class VideoSliceInterface(QWidget):
         self.play_btn.clicked.connect(self.play_pause_video)
         self.slider.sliderMoved.connect(self.set_position)
         self.slider.valueChanged.connect(self.set_position)
+        # self.video_player.signals.media_end.connect(self.handle_media_end)
         
         # 倍速控制
         self.speed_box.currentTextChanged.connect(self.set_playback_speed)
@@ -424,3 +434,9 @@ class VideoSliceInterface(QWidget):
             QMessageBox.critical(self, "错误", result)
         else:
             QMessageBox.information(self, "完成", result)
+
+    def handle_media_end(self):
+        print("主线程: 视频结束，重置播放器")
+        self.video_player.media_player.stop()
+        self.video_player.media_player.set_media(self.player.media)
+        # 不主动 play，让用户点“播放”按钮生效
