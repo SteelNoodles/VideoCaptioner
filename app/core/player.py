@@ -127,6 +127,19 @@ class VideoPlayer:
             self.media_player.set_rate(s)
         except:
             pass
+        
+    def add_slave(self, sub_path):
+        if sub_path:
+            self.media_player.add_slave(vlc.MediaSlaveType.subtitle, sub_path, True)
+            
+    def video_get_spu_description(self):
+        return self.media_player.video_get_spu_description()
+    
+    def video_get_spu(self):
+        return self.media_player.video_get_spu()
+    
+    def video_set_spu(self, track_id):
+        return self.media_player.video_set_spu(track_id)
 
 class VideoSlicer:
     """视频切片核心功能"""

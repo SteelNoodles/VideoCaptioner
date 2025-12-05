@@ -1,7 +1,7 @@
 from PyQt5.QtWidgets import QWidget, QVBoxLayout, QSlider, QLabel, QHBoxLayout, QPushButton, QStyle, QComboBox, \
     QListWidget, QFileDialog
 from PyQt5.QtCore import Qt, QPoint, QStandardPaths
-from qfluentwidgets import PushButton, PrimaryPushButton, ComboBox, BodyLabel, ListWidget, CommandBar, Action, FluentIcon
+from qfluentwidgets import PushButton, PrimaryPushButton, ComboBox, BodyLabel, ListWidget, CommandBar, Action, FluentIcon, InfoBar, InfoBarPosition
 from qfluentwidgets import FluentIcon as FIF
 from app.core.entities import (
     SupportedAudioFormats,
@@ -9,6 +9,11 @@ from app.core.entities import (
     TranscribeModelEnum,
     TranscribeTask,
     VideoInfo,
+)
+
+from app.core.constant import (
+    INFOBAR_DURATION_SUCCESS,
+    INFOBAR_DURATION_WARNING,
 )
 
 import os
@@ -76,7 +81,7 @@ class HoverSlider(QSlider):
 
     def mousePressEvent(self, event):
         """鼠标点击时设置滑块位置"""
-        super().mousePressEvent(event)
+        # super().mousePressEvent(event)
         # 计算点击位置对应的滑块值
         if self.orientation() == Qt.Horizontal:
             pos = event.pos().x()
@@ -161,7 +166,16 @@ class VideoSliceInterface(QWidget):
         control_layout.addWidget(BodyLabel(self.tr("倍速:")))
         control_layout.addWidget(self.speed_box)
         # control_layout.addSeparator()
-        lower_layout.addWidget(control_layout, stretch=3)
+        
+        self.btn_load_sub = PushButton(self.tr('加载字幕'))
+        self.btn_load_sub.clicked.connect(self.load_subtitle_file)
+
+        self.combo_subtitle = ComboBox()
+        self.combo_subtitle.activated.connect(self.on_subtitle_changed)
+        
+        control_layout.addWidget(self.btn_load_sub)
+        control_layout.addWidget(self.combo_subtitle)
+        lower_layout.addWidget(control_layout, stretch=7)
 
         # 切片区
         tag_layout = QHBoxLayout()
@@ -172,8 +186,7 @@ class VideoSliceInterface(QWidget):
         # self.btn_export.setStyleSheet("background-color: #4CAF50; color: white; font-weight: bold;")
         tag_layout.addWidget(self.btn_export)
         tag_layout.addStretch()
-        lower_layout.addLayout(tag_layout, stretch=6)
-        # top_layout.addLayout(tag_layout, stretch=6)
+        lower_layout.addLayout(tag_layout)
 
         status_layout = QHBoxLayout()
         self.lbl_status = BodyLabel(self.tr("状态: 等待操作"))
@@ -182,7 +195,6 @@ class VideoSliceInterface(QWidget):
 
         main_layout.addLayout(lower_layout)
         main_layout.addLayout(status_layout)
-
 
         # (4) 切片列表（带勾选）
         self.segment_list = ListWidget()
@@ -197,7 +209,7 @@ class VideoSliceInterface(QWidget):
         # 文件和播放控制
         self.open_file_action.triggered.connect(self.open_file)
         self.play_btn.clicked.connect(self.play_pause_video)
-        self.slider.sliderMoved.connect(self.set_position)
+        # self.slider.sliderMoved.connect(self.set_position)
         self.slider.valueChanged.connect(self.set_position)
         # self.video_player.signals.media_end.connect(self.handle_media_end)
         
@@ -238,7 +250,13 @@ class VideoSliceInterface(QWidget):
                     # 延迟获取视频时长
                     QTimer.singleShot(500, self.try_update_duration)
                 else:
-                    QMessageBox.warning(self, "错误", error_msg)
+                    InfoBar.warning(
+                        title=self.tr("播放错误"),
+                        content=error_msg,
+                        duration=INFOBAR_DURATION_WARNING,
+                        position=InfoBarPosition.TOP,
+                        parent=self.window(),
+                    )
 
     def try_update_duration(self):
         """尝试更新视频时长"""
@@ -253,13 +271,25 @@ class VideoSliceInterface(QWidget):
         """播放/暂停视频"""
         success, error_msg = self.video_player.play_pause()
         if not success:
-            QMessageBox.warning(self, "错误", error_msg)
+            InfoBar.warning(
+                title=self.tr("播放错误"),
+                content=error_msg,
+                duration=INFOBAR_DURATION_WARNING,
+                position=InfoBarPosition.TOP,
+                parent=self.window(),
+            )
 
     def set_position(self, position):
         """设置播放位置"""
         success, error_msg = self.video_player.set_position(position)
         if not success and error_msg:
-            QMessageBox.warning(self, "错误", error_msg)
+            InfoBar.warning(
+                title=self.tr("播放错误"),
+                content=error_msg,
+                duration=INFOBAR_DURATION_WARNING,
+                position=InfoBarPosition.TOP,
+                parent=self.window(),
+            )
 
     def sync_ui(self):
         """同步UI状态"""
@@ -296,7 +326,13 @@ class VideoSliceInterface(QWidget):
         status, is_error = self.slicer.mark_in(current_time)
         
         if is_error:
-            QMessageBox.warning(self, "错误", status)
+            InfoBar.warning(
+                title=self.tr("播放错误"),
+                content=status,
+                duration=INFOBAR_DURATION_WARNING,
+                position=InfoBarPosition.TOP,
+                parent=self.window(),
+            )
         else:
             self.lbl_status.setText(status)
             
@@ -313,11 +349,23 @@ class VideoSliceInterface(QWidget):
     def export_videos(self):
         """导出选中的切片（子线程）"""
         if not hasattr(self, 'video_path') or not self.video_path:
-            QMessageBox.warning(self, "错误", "请先打开视频文件。")
+            InfoBar.warning(
+                title=self.tr("错误"),
+                content="请先打开视频文件。",
+                duration=INFOBAR_DURATION_WARNING,
+                position=InfoBarPosition.TOP,
+                parent=self.window(),
+            )
             return
         
         if not self.slicer.segments:
-            QMessageBox.warning(self, "无内容", "没有任何可导出的切片。")
+            InfoBar.warning(
+                title=self.tr("切片错误"),
+                content="没有任何可导出的切片。",
+                duration=INFOBAR_DURATION_WARNING,
+                position=InfoBarPosition.TOP,
+                parent=self.window(),
+            )
             return
 
         selected_idxs = []
@@ -340,12 +388,65 @@ class VideoSliceInterface(QWidget):
         self.btn_export.setEnabled(True)
         self.lbl_status.setText("导出完成" if not is_error else "导出失败")
         if is_error:
-            QMessageBox.critical(self, "错误", result)
+            InfoBar.critical(
+                title=self.tr("切片错误"),
+                content=result,
+                duration=INFOBAR_DURATION_WARNING,
+                position=InfoBarPosition.TOP,
+                parent=self.window(),
+            )
         else:
-            QMessageBox.information(self, "完成", result)
+            InfoBar.info(
+                title=self.tr("完成"),
+                content=result,
+                duration=INFOBAR_DURATION_WARNING,
+                position=InfoBarPosition.TOP,
+                parent=self.window(),
+            )
 
     def handle_media_end(self):
         print("主线程: 视频结束，重置播放器")
         self.video_player.media_player.stop()
         self.video_player.media_player.set_media(self.player.media)
         # 不主动 play，让用户点“播放”按钮生效
+        
+    def load_subtitle_file(self):
+        sub_path, _ = QFileDialog.getOpenFileName(
+            self, "选择字幕文件", "", "字幕 (*.srt *.ass *.sub)")
+        if sub_path:
+            # 添加外挂字幕并切换到该字幕
+            self.video_player.add_slave(sub_path)
+            self.lbl_status.setText(f"已加载字幕: {os.path.basename(sub_path)}")
+            QTimer.singleShot(500, self.update_subtitle_tracks)
+
+    def update_subtitle_tracks(self):
+        """刷新字幕列表，并高亮当前正在用的字幕"""
+        self.combo_subtitle.blockSignals(True)
+        self.combo_subtitle.clear()
+        self.subtitle_items = []
+        # 获取字幕轨道
+        track_list = self.video_player.video_get_spu_description()
+        if not track_list:
+            self.combo_subtitle.addItem("无字幕轨")
+            self.combo_subtitle.setEnabled(False)
+        else:
+            for track_id, name in track_list:
+                self.combo_subtitle.addItem(f"{track_id}: {name}")
+                self.subtitle_items.append((track_id, name))  # 内挂或外挂名字
+            current_id = self.video_player.video_get_spu()
+            cur_idx = 0
+            for i, (tid, _) in enumerate(track_list):
+                if tid == current_id:
+                    cur_idx = i
+                    break
+            self.combo_subtitle.setCurrentIndex(cur_idx)
+        self.combo_subtitle.blockSignals(False)
+
+    def on_subtitle_changed(self, idx):
+        """切换字幕轨道"""
+        if not self.subtitle_items: return
+        track_id, _ = self.subtitle_items[idx]
+        if track_id == -1:
+            self.video_player.video_set_spu(-1)  # 关闭字幕
+        else:
+            self.video_player.video_set_spu(track_id)
