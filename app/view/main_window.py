@@ -22,7 +22,7 @@ from app.view.batch_process_interface import BatchProcessInterface
 from app.view.home_interface import HomeInterface
 from app.view.setting_interface import SettingInterface
 from app.view.subtitle_style_interface import SubtitleStyleInterface
-from app.view.video_silcer_interface import VideoSliceInterface
+from app.view.video_slice_interface import VideoSliceInterface
 
 from qfluentwidgets import FluentStyleSheet, PushButton, TextEdit, isDarkTheme
 
@@ -39,7 +39,7 @@ class MainWindow(FluentWindow):
         self.settingInterface = SettingInterface(self)
         self.subtitleStyleInterface = SubtitleStyleInterface(self)
         self.batchProcessInterface = BatchProcessInterface(self)
-        self.videoSilcerInterface = VideoSliceInterface(self)
+        self.videoSliceInterface = VideoSliceInterface(self)
 
         # 初始化版本检查器
         self.versionChecker = VersionChecker()
@@ -64,7 +64,7 @@ class MainWindow(FluentWindow):
         """初始化导航栏"""
         # 添加导航项
         self.addSubInterface(self.homeInterface, FIF.HOME, self.tr("主页"))
-        self.addSubInterface(self.videoSilcerInterface, FIF.PLAY, self.tr("视频切片"))
+        self.addSubInterface(self.videoSliceInterface, FIF.PLAY, self.tr("视频切片"))
         self.addSubInterface(self.batchProcessInterface, FIF.VIDEO, self.tr("批量处理"))
         self.addSubInterface(self.subtitleStyleInterface, FIF.FONT, self.tr("字幕样式"))
 

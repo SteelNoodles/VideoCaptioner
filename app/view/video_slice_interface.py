@@ -17,7 +17,7 @@ from PyQt5.QtCore import QTimer, Qt
 from app.view.player_components import VideoWidget
 from app.core.player import VideoPlayer, VideoSlicer
 from app.core.utils.player_utils import setup_vlc_environment, format_time
-from app.thread.video_silce_thread import VideoSilerThread
+from app.thread.video_slice_thread import VideoSilerThread
 
 
 class HoverSlider(QSlider):
