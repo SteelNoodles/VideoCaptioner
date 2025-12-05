@@ -158,14 +158,14 @@ class VideoSliceInterface(QWidget):
         self.speed_box.addItems(['0.5x', '1.0x', '1.25x', '1.5x', '2.0x'])
         self.speed_box.setCurrentText('1.0x')
         self.speed_box.setMaximumWidth(72)
-        control_layout.addWidget(BodyLabel("倍速:"))
+        control_layout.addWidget(BodyLabel(self.tr("倍速:")))
         control_layout.addWidget(self.speed_box)
-        control_layout.addSeparator()
+        # control_layout.addSeparator()
         lower_layout.addWidget(control_layout, stretch=3)
 
         # 切片区
         tag_layout = QHBoxLayout()
-        self.btn_mark_in = PrimaryPushButton("标记时间戳(❤️/切片)")
+        self.btn_mark_in = PrimaryPushButton(self.tr("标记时间戳"))
         tag_layout.addWidget(self.btn_mark_in)
 
         self.btn_export = PrimaryPushButton(self.tr("导出选中切片"), self, icon=FIF.PLAY)
@@ -176,7 +176,7 @@ class VideoSliceInterface(QWidget):
         # top_layout.addLayout(tag_layout, stretch=6)
 
         status_layout = QHBoxLayout()
-        self.lbl_status = BodyLabel("状态: 等待操作")
+        self.lbl_status = BodyLabel(self.tr("状态: 等待操作"))
         status_layout.addWidget(self.lbl_status)
         status_layout.addStretch()
 
@@ -286,8 +286,8 @@ class VideoSliceInterface(QWidget):
     ######## 倍速控制 ########
     def set_playback_speed(self, speed_str):
         """设置播放速度"""
-        speed = self.video_player.set_playback_speed(speed_str)
-        self.lbl_status.setText(f"当前播放速度：{speed}")
+        speed = self.video_player.set_speed(speed_str)
+        self.lbl_status.setText(f"当前播放速度：{speed_str}")
 
     ######## 切片与导出 ########
     def mark_in(self):

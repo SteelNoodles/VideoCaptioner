@@ -2229,6 +2229,34 @@
     </message>
 </context>
 <context>
+    <name>VideoSliceInterface</name>
+    <message>
+        <location filename="../../app/view/video_slice_interface.py" line="151" />
+        <source>打开视频</source>
+        <translation type="unfinished"></translation>
+    </message>
+    <message>
+        <location filename="../../app/view/video_slice_interface.py" line="161" />
+        <source>倍速:</source>
+        <translation type="unfinished"></translation>
+    </message>
+    <message>
+        <location filename="../../app/view/video_slice_interface.py" line="168" />
+        <source>标记时间戳</source>
+        <translation type="unfinished"></translation>
+    </message>
+    <message>
+        <location filename="../../app/view/video_slice_interface.py" line="171" />
+        <source>导出选中切片</source>
+        <translation type="unfinished"></translation>
+    </message>
+    <message>
+        <location filename="../../app/view/video_slice_interface.py" line="171" />
+        <source>状态: 等待操作</source>
+        <translation type="unfinished"></translation>
+    </message>
+</context>
+<context>
     <name>VideoSynthesisThread</name>
     <message>
         <location filename="../../app/thread/video_synthesis_thread.py" line="63"/>

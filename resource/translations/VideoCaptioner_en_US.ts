@@ -2246,6 +2246,34 @@ Note: When using small LLM models, it is recommended to keep the script within 1
     </message>
 </context>
 <context>
+    <name>VideoSliceInterface</name>
+    <message>
+        <location filename="../../app/view/video_slice_interface.py" line="151" />
+        <source>打开视频</source>
+        <translation>Open video</translation>
+    </message>
+    <message>
+        <location filename="../../app/view/video_slice_interface.py" line="161" />
+        <source>倍速:</source>
+        <translation>Speed:</translation> <!-- 加上冒号更统一 -->
+    </message>
+    <message>
+        <location filename="../../app/view/video_slice_interface.py" line="168" />
+        <source>标记时间戳</source>
+        <translation>Mark timestamp</translation> <!-- 去除不必要的 /slice -->
+    </message>
+    <message>
+        <location filename="../../app/view/video_slice_interface.py" line="171" />
+        <source>导出选中切片</source>
+        <translation>Export selected slices</translation>
+    </message>
+    <message>
+        <location filename="../../app/view/video_slice_interface.py" line="171" />
+        <source>状态: 等待操作</source>
+        <translation>Status: Awaiting action</translation>
+    </message>
+</context>
+<context>
     <name>VideoSynthesisThread</name>
     <message>
         <location filename="../../app/thread/video_synthesis_thread.py" line="63" />
