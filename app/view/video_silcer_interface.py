@@ -14,7 +14,7 @@ from app.core.entities import (
 import os
 from PyQt5.QtWidgets import QApplication, QMainWindow, QMessageBox, QFileDialog, QStyle, QListWidgetItem
 from PyQt5.QtCore import QTimer, Qt
-from app.view.player_components import VideoSlicerUI
+from app.view.player_components import VideoWidget
 from app.core.player import VideoPlayer, VideoSlicer
 from app.core.utils.player_utils import setup_vlc_environment, format_time
 from app.thread.video_silce_thread import VideoSilerThread
@@ -33,7 +33,8 @@ class HoverSlider(QSlider):
         self.tooltip_label.hide()
         self.setMouseTracking(True)
         self.duration = 0
-        self.format_time = lambda ms: ms
+        # 默认格式化方法
+        self.format_time = format_time
         self.last_show_pos = None
 
     def set_duration(self, duration):
@@ -58,7 +59,7 @@ class HoverSlider(QSlider):
 
         # 计算Tooltip的位置（全局）
         global_p = self.mapToGlobal(QPoint(x, 0))
-        label_width = self.tooltip_label.fontMetrics().boundingRect(text).width() + 18
+        label_width = self.tooltip_label.fontMetrics().boundingRect(text).width() + 28
         label_height = 28
         popup_x = global_p.x() - label_width // 2
         popup_y = global_p.y() - label_height - 10
@@ -93,97 +94,8 @@ class HoverSlider(QSlider):
 
 
 class VideoSliceInterface(QWidget):
-    # def __init__(self, parent=None):
-    #     super().__init__(parent)
-
-    #     # 设置对象名称和样式
-    #     self.setObjectName("VideoSliceInterface")
-    #     self.setStyleSheet(
-    #         """
-    #         VideoSliceInterface{background: white}
-    #     """
-    #     )
-
-    #     self.init_ui()
-
-    # def init_ui(self):
-    #     """初始化界面布局"""
-    #     main_layout = QVBoxLayout()
-    #     self.setLayout(main_layout)
-
-    #     # (1) 视频画面
-    #     self.video_widget = QWidget(self)
-    #     self.video_widget.setMinimumHeight(380)
-    #     main_layout.addWidget(self.video_widget, stretch=6)
-
-    #     # (2) 进度条（带悬浮时间气泡）
-    #     self.slider = HoverSlider(Qt.Horizontal, self)
-    #     main_layout.addWidget(self.slider)
-
-    #     # (3) 下排：分为 "播放控制+倍速" 和 "切片标记与导出" 两组
-    #     lower_layout = QHBoxLayout()
-
-    #     # 控制区
-    #     control_layout = CommandBar(self)
-    #     control_layout.setToolButtonStyle(Qt.ToolButtonTextBesideIcon)  # type: ignore
-    #     control_layout.setFixedHeight(40)
-    #     self.play_btn = PushButton()
-    #     self.play_btn.setIcon(self.style().standardIcon(QStyle.SP_MediaPlay))
-    #     control_layout.addWidget(self.play_btn)        
-    #     self.open_file_action = Action(FluentIcon.FOLDER, self.tr("打开视频"))
-    #     self.open_file_action.triggered.connect(self._on_file_select)
-        
-    #     control_layout.addAction(self.open_file_action)
-
-    #     # 倍速
-    #     self.speed_box = ComboBox()
-    #     self.speed_box.addItems(['0.5x', '1.0x', '1.25x', '1.5x', '2.0x'])
-    #     self.speed_box.setCurrentText('1.0x')
-    #     self.speed_box.setMaximumWidth(72)
-    #     control_layout.addWidget(BodyLabel("倍速:"))
-    #     control_layout.addWidget(self.speed_box)
-    #     control_layout.addSeparator()
-    #     lower_layout.addWidget(control_layout, stretch=3)
-
-    #     # 切片区
-    #     tag_layout = QHBoxLayout()
-    #     self.lbl_status = BodyLabel("状态: 等待操作")
-    #     tag_layout.addWidget(self.lbl_status)
-    #     self.btn_mark_in = PrimaryPushButton("标记时间戳(❤️/切片)")
-    #     tag_layout.addWidget(self.btn_mark_in)
-
-    #     self.btn_export = PrimaryPushButton(self.tr("导出选中切片"), self, icon=FIF.PLAY)
-    #     # self.btn_export.setStyleSheet("background-color: #4CAF50; color: white; font-weight: bold;")
-    #     tag_layout.addWidget(self.btn_export)
-    #     tag_layout.addStretch()
-    #     lower_layout.addLayout(tag_layout, stretch=6)
-
-    #     main_layout.addLayout(lower_layout)
-
-    #     # (4) 切片列表（带勾选）
-    #     self.segment_list = ListWidget()
-    #     # self.segment_list.setStyleSheet()
-    #     main_layout.addWidget(self.segment_list, stretch=2)
-        
-        
-    # def _on_file_select(self):
-    #     """文件选择处理"""
-    #     desktop_path = QStandardPaths.writableLocation(QStandardPaths.DesktopLocation)
-    #     file_dialog = QFileDialog()
-
-    #     video_formats = " ".join(f"*.{fmt.value}" for fmt in SupportedVideoFormats)
-    #     audio_formats = " ".join(f"*.{fmt.value}" for fmt in SupportedAudioFormats)
-    #     filter_str = f"{self.tr('媒体文件')} ({video_formats} {audio_formats});;{self.tr('视频文件')} ({video_formats});;{self.tr('音频文件')} ({audio_formats})"
-
-    #     file_path, _ = file_dialog.getOpenFileName(
-    #         self, self.tr("选择媒体文件"), desktop_path, filter_str
-    #     )
-    #     if file_path:
-    #         self.update_info(file_path)
     def __init__(self, parent=None):
         super().__init__(parent)
-        # self.setWindowTitle("跨平台VLC倍速切片播放器")
-        # self.resize(950, 700)
         
         # 设置对象名称和样式
         self.setObjectName("VideoSliceInterface")
@@ -213,15 +125,12 @@ class VideoSliceInterface(QWidget):
         
         创建并配置主窗口的UI组件。
         """
-        # self = VideoSlicerUI(self)
-        # # self.setCentralWidget(self)
-        # self.slider.format_time = format_time  # 注入格式化方法
         # """初始化界面布局"""
         main_layout = QVBoxLayout()
         self.setLayout(main_layout)
 
         # (1) 视频画面
-        self.video_widget = QWidget(self)
+        self.video_widget = VideoWidget(self.video_player, self)
         self.video_widget.setMinimumHeight(380)
         main_layout.addWidget(self.video_widget, stretch=6)
 

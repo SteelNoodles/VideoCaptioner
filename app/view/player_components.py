@@ -139,3 +139,17 @@ class VideoSlicerUI(QWidget):
         # (4) 切片列表（带勾选）
         self.segment_list = QListWidget()
         main_layout.addWidget(self.segment_list, stretch=2)
+        
+class VideoWidget(QWidget):
+    """可点击的显示 widget，用于 PyQt5+VLC"""
+    def __init__(self, player, parent=None):
+        super().__init__(parent)
+        self.player = player
+        # 可根据需求设置样式
+        # self.setStyleSheet("background-color: black;")
+    
+    def mousePressEvent(self, event):
+        if event.button() == Qt.LeftButton:
+            ok, msg = self.player.play_pause()
+            # 可选：点击无声音反馈，可以做动画/改变样式
+        super().mousePressEvent(event)

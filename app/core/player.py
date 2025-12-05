@@ -7,6 +7,7 @@ from app.core.utils.player_utils import check_ffmpeg_available, ensure_directory
 
 from PyQt5.QtCore import QObject, QVersionNumber, pyqtSignal
 
+
 class PlayerSignals(QObject):
     media_end = pyqtSignal()
 
@@ -22,10 +23,13 @@ class VideoPlayer:
 
     def set_vlc_widget(self, widget):
         """设置 PyQt5 显示窗口"""
+        # widget.winId())在不同平台上的类型不同
+        handle = int(widget.winId())
+        
         if sys.platform.startswith("linux"):
-            self.media_player.set_xwindow(widget.winId())
+            self.media_player.set_xwindow(handle)
         elif sys.platform.startswith("win"):
-            self.media_player.set_hwnd(widget.winId())
+            self.media_player.set_hwnd(handle)
         elif sys.platform == "darwin":
             self.media_player.set_nsobject(int(widget.winId()))
 
@@ -123,6 +127,7 @@ class VideoPlayer:
             self.media_player.set_rate(s)
         except:
             pass
+
 class VideoSlicer:
     """视频切片核心功能"""
     def __init__(self):
