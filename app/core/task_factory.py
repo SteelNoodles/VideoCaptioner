@@ -142,6 +142,10 @@ class TaskFactory:
             base_url = cfg.chatglm_api_base.value
             api_key = cfg.chatglm_api_key.value
             llm_model = cfg.chatglm_model.value
+        elif current_service == LLMServiceEnum.PUBLIC:
+            base_url = cfg.public_api_base.value
+            api_key = cfg.public_api_key.value
+            llm_model = cfg.public_model.value
         else:
             base_url = ""
             api_key = ""

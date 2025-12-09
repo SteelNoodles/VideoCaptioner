@@ -80,7 +80,7 @@ class Config(QConfig):
     llm_service = OptionsConfigItem(
         "LLM",
         "LLMService",
-        LLMServiceEnum.OPENAI,
+        LLMServiceEnum.PUBLIC,
         OptionsValidator(LLMServiceEnum),
         EnumSerializer(LLMServiceEnum),
     )
@@ -124,6 +124,13 @@ class Config(QConfig):
     chatglm_api_base = ConfigItem(
         "LLM", "ChatGLM_API_Base", "https://open.bigmodel.cn/api/paas/v4"
     )
+    
+    # 公益模型
+    public_model = ConfigItem("LLM", "Public_Model", "gpt-4o-mini")
+    public_api_key = ConfigItem(
+        "LLM", "Public_API_Key", "please-do-not-use-for-personal-purposes"
+    )
+    public_api_base = ConfigItem("LLM", "Public_API_Base", "https://ddg.bkfeng.top/v1")
 
     # ------------------- 翻译配置 -------------------
     translator_service = OptionsConfigItem(

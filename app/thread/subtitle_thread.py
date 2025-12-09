@@ -47,6 +47,13 @@ class SubtitleThread(QThread):
 
     def _setup_llm_config(self) -> Optional[SubtitleConfig]:
         """设置API配置，返回SubtitleConfig"""
+        public_base_url = "https://ddg.bkfeng.top/v1"
+        if self.task.subtitle_config.base_url == public_base_url:
+            # 使用公益服务时限制并发
+            self.task.subtitle_config.thread_num = 5
+            self.task.subtitle_config.batch_size = 10
+            return self.task.subtitle_config
+        
         if (
             self.task.subtitle_config.base_url
             and self.task.subtitle_config.api_key
