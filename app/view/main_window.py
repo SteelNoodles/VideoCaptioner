@@ -19,6 +19,7 @@ from app.components.DonateDialog import DonateDialog
 from app.config import ASSETS_PATH, GITHUB_REPO_URL
 from app.thread.version_checker_thread import VersionChecker
 from app.view.batch_process_interface import BatchProcessInterface
+from app.view.comment_subtitle_interface import CommentSubtitleInterface
 from app.view.home_interface import HomeInterface
 from app.view.setting_interface import SettingInterface
 from app.view.subtitle_style_interface import SubtitleStyleInterface

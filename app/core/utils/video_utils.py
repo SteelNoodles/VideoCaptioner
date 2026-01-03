@@ -154,15 +154,7 @@ def add_subtitles(
     output: str,
     crf: int = 23,
     preset: Literal[
-        "ultrafast",
-        "superfast",
-        "veryfast",
-        "faster",
-        "fast",
-        "medium",
-        "slow",
-        "slower",
-        "veryslow",
+        "ultrafast", "superfast", "veryfast", "faster", "fast", "medium", "slow", "slower", "veryslow"
     ] = "medium",
     vcodec: str = "libx264",
     soft_subtitle: bool = False,
@@ -187,35 +179,11 @@ def add_subtitles(
         if soft_subtitle:
             # 添加软字幕
             cmd = [
-                "ffmpeg",
-                "-i",
-                input_file,
-                "-i",
-                processed_subtitle,
-                "-c:v",
-                "copy",
-                "-c:a",
-                "copy",
-                "-c:s",
-                "mov_text",
-                "-y",
-                output,
+                "ffmpeg", "-i", input_file, "-i", processed_subtitle, "-c:v", "copy", "-c:a", "copy", "-c:s", "mov_text", "-y", output
             ]
             logger.info(f"添加软字幕执行命令: {' '.join(cmd)}")
             try:
-                subprocess.run(
-                    cmd,
-                    capture_output=True,
-                    check=True,
-                    text=True,
-                    encoding="utf-8",
-                    errors="replace",
-                    creationflags=(
-                        getattr(subprocess, "CREATE_NO_WINDOW", 0)
-                        if os.name == "nt"
-                        else 0
-                    ),
-                )
+                subprocess.run(cmd, capture_output=True, check=True, text=True, encoding="utf-8", errors="replace")
                 logger.info("软字幕添加成功")
             except subprocess.CalledProcessError as e:
                 logger.error("== ffmpeg 添加软字幕失败 ==")
@@ -244,26 +212,36 @@ def add_subtitles(
 
             # 检查CUDA是否可用
             use_cuda = check_cuda_available()
+            use_cuda = False
+
+            # 进一步检查FFmpeg是否支持CUDA加速
+            if use_cuda:
+                # 查看FFmpeg是否支持CUDA加速的编码器
+                result = subprocess.run(
+                    ["ffmpeg", "-encoders"],
+                    capture_output=True,
+                    text=True,
+                    encoding="utf-8",
+                    errors="replace",
+                )
+                if "nvenc" not in result.stdout.lower():  # 检查是否支持nvenc编码器
+                    logger.warning("FFmpeg未启用CUDA加速编解码器，回退到软件编码")
+                    use_cuda = False
+                else:
+                    logger.info("CUDA加速支持，准备使用CUDA编码")
+
+            # 构建FFmpeg命令
+            if not soft_subtitle:
+                use_cuda = False
+                logger.info("硬字幕模式（subtitles/ass），禁用CUDA以保证稳定性")
+            
             cmd = ["ffmpeg"]
             if use_cuda:
                 logger.info("使用CUDA加速")
                 cmd.extend(["-hwaccel", "cuda"])
             cmd.extend(
                 [
-                    "-i",
-                    input_file,
-                    "-acodec",
-                    "copy",
-                    "-vcodec",
-                    vcodec,
-                    "-crf",
-                    str(crf),
-                    "-preset",
-                    preset,
-                    "-vf",
-                    vf,
-                    "-y",
-                    output,
+                    "-i", input_file, "-acodec", "copy", "-vcodec", vcodec, "-crf", str(crf), "-preset", preset, "-vf", vf, "-y", output
                 ]
             )
 
@@ -279,45 +257,36 @@ def add_subtitles(
                     text=True,
                     encoding="utf-8",
                     errors="replace",
-                    creationflags=(
-                        getattr(subprocess, "CREATE_NO_WINDOW", 0)
-                        if os.name == "nt"
-                        else 0
-                    ),
                 )
 
-                # 实时读取输出并调用回调函数
                 total_duration = None
                 current_time = 0
-
                 while True:
                     output_line = process.stderr.readline()
-                    if not output_line or (process.poll() is not None):
+                    if not output_line or process.poll() is not None:
                         break
-                    if not progress_callback:
-                        continue
+                    if progress_callback:
+                        if total_duration is None:
+                            duration_match = re.search(
+                                r"Duration: (\d{2}):(\d{2}):(\d{2}\.\d{2})", output_line
+                            )
+                            if duration_match:
+                                h, m, s = map(float, duration_match.groups())
+                                total_duration = h * 3600 + m * 60 + s
+                                logger.info(f"视频总时长: {total_duration}秒")
 
-                    if total_duration is None:
-                        duration_match = re.search(
-                            r"Duration: (\d{2}):(\d{2}):(\d{2}\.\d{2})", output_line
+                        # 解析当前处理时间
+                        time_match = re.search(
+                            r"time=(\d{2}):(\d{2}):(\d{2}\.\d{2})", output_line
                         )
-                        if duration_match:
-                            h, m, s = map(float, duration_match.groups())
-                            total_duration = h * 3600 + m * 60 + s
-                            logger.info(f"视频总时长: {total_duration}秒")
+                        if time_match:
+                            h, m, s = map(float, time_match.groups())
+                            current_time = h * 3600 + m * 60 + s
 
-                    # 解析当前处理时间
-                    time_match = re.search(
-                        r"time=(\d{2}):(\d{2}):(\d{2}\.\d{2})", output_line
-                    )
-                    if time_match:
-                        h, m, s = map(float, time_match.groups())
-                        current_time = h * 3600 + m * 60 + s
-
-                    # 计算进度百分比
-                    if total_duration:
-                        progress = (current_time / total_duration) * 100
-                        progress_callback(f"{round(progress)}", "正在合成")
+                        # 计算进度百分比
+                        if total_duration:
+                            progress = (current_time / total_duration) * 100
+                            progress_callback(f"{round(progress)}", "正在合成")
 
                 if progress_callback:
                     progress_callback("100", "合成完成")

@@ -1,7 +1,8 @@
-from PyQt5.QtWidgets import QSizePolicy, QStackedWidget, QVBoxLayout, QWidget
+from PyQt5.QtWidgets import QSizePolicy, QStackedWidget, QVBoxLayout, QWidget, QMessageBox
 from qfluentwidgets import SegmentedWidget
 
 from app.core.task_factory import TaskFactory
+from app.view.comment_subtitle_interface import CommentSubtitleInterface
 from app.view.subtitle_interface import SubtitleInterface
 from app.view.task_creation_interface import TaskCreationInterface
 from app.view.transcription_interface import TranscriptionInterface
@@ -31,6 +32,7 @@ class HomeInterface(QWidget):
         self.task_creation_interface = TaskCreationInterface(self)
         self.transcription_interface = TranscriptionInterface(self)
         self.subtitle_optimization_interface = SubtitleInterface(self)
+        self.comment_subtitle_interface = CommentSubtitleInterface(self)
         self.video_synthesis_interface = VideoSynthesisInterface(self)
 
         self.addSubInterface(
@@ -43,6 +45,11 @@ class HomeInterface(QWidget):
             self.subtitle_optimization_interface,
             "SubtitleInterface",
             self.tr("字幕优化与翻译"),
+        )
+        self.addSubInterface(
+            self.comment_subtitle_interface,
+            "CommentSubtitleInterface",
+            self.tr("评论字幕"),
         )
         self.addSubInterface(
             self.video_synthesis_interface,
@@ -65,6 +72,9 @@ class HomeInterface(QWidget):
         self.subtitle_optimization_interface.finished.connect(
             self.switch_to_video_synthesis
         )
+        self.comment_subtitle_interface.finished.connect(
+            self.switch_to_video_synthesis
+        )
 
     def switch_to_transcription(self, file_path):
         # 切换到转录界面
@@ -85,6 +95,20 @@ class HomeInterface(QWidget):
         self.subtitle_optimization_interface.process()
         self.stackedWidget.setCurrentWidget(self.subtitle_optimization_interface)
         self.pivot.setCurrentItem("SubtitleInterface")
+        
+    def switch_to_comment_subtitle(self, file_path, video_path):
+        # 切换到评论字幕界面
+        try:
+            subtitle_task = TaskFactory.create_subtitle_task(
+                file_path, video_path, need_next_task=True
+            )
+            self.comment_subtitle_interface.set_task(subtitle_task)
+            self.stackedWidget.setCurrentWidget(self.comment_subtitle_interface)
+            self.pivot.setCurrentItem("CommentSubtitleInterface")
+        except Exception as e:
+            import traceback
+            traceback.print_exc()
+            QMessageBox.critical(self, "错误", f"切换到评论字幕界面时发生错误: {str(e)}")
 
     def switch_to_video_synthesis(self, video_path, subtitle_path):
         # 切换到视频合成界面

@@ -155,6 +155,18 @@ class SubtitleLayoutEnum(Enum):
     ONLY_ORIGINAL = "仅原文"
     ONLY_TRANSLATE = "仅译文"
 
+class CommentPositionEnum(Enum):
+    """评论位置"""
+
+    LEFT_TOP = "左上角"
+    BOTTOM = "右上角"
+
+class CommentOutputModeEnum(Enum):
+    """评论输出格式"""
+
+    ONLY_COMMENT = "仅评论"
+    COMMENT_AND_SUBTITLE = "评论和字幕"
+
 
 class VideoQualityEnum(Enum):
     """视频合成质量"""

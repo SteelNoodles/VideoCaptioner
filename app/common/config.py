@@ -32,6 +32,8 @@ from ..core.entities import (
     VadMethodEnum,
     VideoQualityEnum,
     WhisperModelEnum,
+    CommentPositionEnum,
+    CommentOutputModeEnum,
 )
 from ..core.translate.types import TargetLanguage
 
@@ -288,6 +290,26 @@ class Config(QConfig):
         LanguageSerializer(),
         restart=True,
     )
+
+    comments_count = ConfigItem("Comment", "CommentsCount", 10, RangeValidator(10, 100))
+
+
+    need_comments = ConfigItem("Comment", "NeedComments", True, BoolValidator())
+    comment_position = OptionsConfigItem(
+        "Comment",
+        "CommentPosition",
+        CommentPositionEnum.LEFT_TOP,
+        OptionsValidator(CommentPositionEnum),
+        EnumSerializer(CommentPositionEnum),
+    )
+    comment_output_mode = OptionsConfigItem(
+        "Comment",
+        "CommentOutputMode",
+        CommentOutputModeEnum.ONLY_COMMENT,
+        OptionsValidator(CommentOutputModeEnum),
+        EnumSerializer(CommentOutputModeEnum),
+    )
+
 
     # ------------------- 更新配置 -------------------
     checkUpdateAtStartUp = ConfigItem(
