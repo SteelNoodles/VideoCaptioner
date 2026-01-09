@@ -101,7 +101,9 @@ from app.core.entities import (
     OutputSubtitleFormatEnum,
     SubtitleLayoutEnum,
     SubtitleTask,
+    SupportedCommentsFormats,
     SupportedSubtitleFormats,
+    SupportedVideoFormats,
     CommentPositionEnum,
     CommentOutputModeEnum,
 )
@@ -438,31 +440,31 @@ class CommentSubtitleInterface(QWidget):
         self.comments_source_layout.addWidget(self.comments_source_button)
         self.config_layout.addLayout(self.comments_source_layout)
 
-        # 字幕文件选择
-        self.subtitle_layout = QHBoxLayout()
-        self.subtitle_layout.setSpacing(15)
-        self.subtitle_label = BodyLabel(self.tr("字幕文件"), self)
-        self.subtitle_input = LineEdit(self)
-        self.subtitle_input.setPlaceholderText(self.tr("选择或者拖拽字幕文件"))
-        self.subtitle_input.setAcceptDrops(True)  # 启用拖放
-        self.subtitle_button = PushButton(self.tr("浏览"))
-        self.subtitle_layout.addWidget(self.subtitle_label)
-        self.subtitle_layout.addWidget(self.subtitle_input)
-        self.subtitle_layout.addWidget(self.subtitle_button)
-        self.config_layout.addLayout(self.subtitle_layout)
+        # 评论文件选择  
+        self.comments_file_layout = QHBoxLayout()
+        self.comments_file_layout.setSpacing(15)
+        self.comments_file_label = BodyLabel(self.tr("评论文件"), self)
+        self.comments_file_input = LineEdit(self)
+        self.comments_file_input.setPlaceholderText(self.tr("选择或者拖拽评论文件"))
+        self.comments_file_input.setAcceptDrops(True)  # 启用拖放
+        self.comments_file_button = PushButton(self.tr("浏览"))
+        self.comments_file_layout.addWidget(self.comments_file_label)
+        self.comments_file_layout.addWidget(self.comments_file_input)
+        self.comments_file_layout.addWidget(self.comments_file_button)
+        self.config_layout.addLayout(self.comments_file_layout)
 
         # 视频文件选择
-        self.video_layout = QHBoxLayout()
-        self.video_layout.setSpacing(15)
-        self.video_label = BodyLabel(self.tr("视频文件"), self)
-        self.video_input = LineEdit(self)
-        self.video_input.setPlaceholderText(self.tr("选择或者拖拽视频文件"))
-        self.video_input.setAcceptDrops(True)  # 启用拖放
-        self.video_button = PushButton(self.tr("浏览"))
-        self.video_layout.addWidget(self.video_label)
-        self.video_layout.addWidget(self.video_input)
-        self.video_layout.addWidget(self.video_button)
-        self.config_layout.addLayout(self.video_layout)
+        self.video_file_layout = QHBoxLayout()
+        self.video_file_layout.setSpacing(15)
+        self.video_file_label = BodyLabel(self.tr("视频文件"), self)
+        self.video_file_input = LineEdit(self)
+        self.video_file_input.setPlaceholderText(self.tr("选择或者拖拽视频文件"))
+        self.video_file_input.setAcceptDrops(True)  # 启用拖放
+        self.video_file_button = PushButton(self.tr("浏览"))
+        self.video_file_layout.addWidget(self.video_file_label)
+        self.video_file_layout.addWidget(self.video_file_input)
+        self.video_file_layout.addWidget(self.video_file_button)
+        self.config_layout.addLayout(self.video_file_layout)
 
         self.main_layout.addWidget(self.config_card)
     
@@ -627,21 +629,47 @@ class CommentSubtitleInterface(QWidget):
 
         self.main_layout.addLayout(top_layout)
 
-    def setup_signals(self):
-        self.comments_source_button.clicked.connect(self.on_comments_source_file_selected)
+    # def setup_signals(self):
+    #     self.comments_source_button.clicked.connect(self.on_comments_source_file_selected)
+    #     self.comments_file_button.clicked.connect(self.on_comments_file_selected)
 
     def on_comments_source_file_selected(self):
         # 构建文件过滤器
-        subtitle_formats = " ".join(
-            f"*.{fmt.value}" for fmt in SupportedSubtitleFormats
+        comments_formats = " ".join(
+            f"*.{fmt.value}" for fmt in SupportedCommentsFormats
         )
-        filter_str = f"{self.tr('字幕文件')} ({subtitle_formats})"
+        filter_str = f"{self.tr('评论文件')} ({comments_formats})"
 
         file_path, _ = QFileDialog.getOpenFileName(
-            self, self.tr("选择字幕文件"), "", filter_str
+            self, self.tr("选择评论文件"), "", filter_str
         )
         if file_path:
             self.subtitle_input.setText(file_path)
+
+    def on_comments_file_selected(self):
+        # 构建文件过滤器
+        comments_formats = " ".join(
+            f"*.{fmt.value}" for fmt in SupportedCommentsFormats
+        )
+        filter_str = f"{self.tr('评论文件')} ({comments_formats})"
+
+        file_path, _ = QFileDialog.getOpenFileName(
+            self, self.tr("选择评论文件"), "", filter_str
+        )
+        if file_path:
+            self.comments_file_input.setText(file_path)
+
+    def on_video_file_selected(self):
+        # 构建文件过滤器
+        video_formats = " ".join(f"*.{fmt.value}" for fmt in SupportedVideoFormats)
+        filter_str = f"{self.tr('视频文件')} ({video_formats})"
+
+        file_path, _ = QFileDialog.getOpenFileName(
+            self, self.tr("选择视频文件"), "", filter_str
+        )
+        if file_path:
+            self.video_input.setText(file_path)
+
 
     def _setup_subtitle_table(self):
         self.subtitle_table = TableView(self)
@@ -704,6 +732,11 @@ class CommentSubtitleInterface(QWidget):
         signalBus.subtitle_translation_changed.connect(
             self.on_subtitle_translation_changed
         )
+
+        self.comments_source_button.clicked.connect(self.on_comments_source_file_selected)
+        self.comments_file_button.clicked.connect(self.on_comments_file_selected)
+        self.video_file_button.clicked.connect(self.on_video_file_selected)
+
         # self.subtitle_setting_button.clicked.connect(self.show_subtitle_settings)
         # self.video_player_button.clicked.connect(self.show_video_player)
 
@@ -743,7 +776,7 @@ class CommentSubtitleInterface(QWidget):
         if not self.subtitle_path:
             InfoBar.warning(
                 self.tr("警告"),
-                self.tr("请先加载字幕文件"),
+                self.tr("请先输入评论源URL或者加载本地评论文件"),
                 duration=INFOBAR_DURATION_WARNING,
                 parent=self,
             )
