@@ -112,6 +112,7 @@ from app.core.translate.types import TargetLanguage
 from app.core.utils.get_subtitle_style import get_subtitle_style
 from app.core.utils.platform_utils import open_folder
 from app.thread.subtitle_thread import SubtitleThread
+from app.thread.comment_thread import CommentThread
 
 
 from app.core.entities import SubtitleTask
@@ -121,12 +122,12 @@ logger = setup_logger("comment_subtitle_interface")
 from app.core.constant import (COMMENT_POSITION_LEFT_TOP, COMMENT_POSITION_RIGHT_TOP,
                               COMMENT_POSITION_LEFT_BOTTOM, COMMENT_POSITION_RIGHT_BOTTOM)
 
-# 检查youtube_comment_downloader模块是否安装
+# 检查yt_dlp模块是否安装
 try:
-    from youtube_comment_downloader import YoutubeCommentDownloader
+    import yt_dlp
 except ImportError:
-    logger.error("youtube_comment_downloader模块未安装")
-    YoutubeCommentDownloader = None
+    logger.error("yt_dlp模块未安装")
+    yt_dlp = None
 
 # 检查googletrans模块是否安装
 try:
@@ -396,6 +397,199 @@ class CommentSubtitleInterface(QWidget):
         # self._update_prompt_button_style()
         self.set_values()
 
+    def is_valid_youtube_url(self, url: str) -> bool:
+        """检查 URL 是否是有效的 YouTube 视频 URL"""
+        youtube_patterns = [
+            r'(?:https?://)?(?:www\.)?(?:youtube\.com/watch\?v=|youtu\.be/)[\w-]+',
+            r'(?:https?://)?(?:www\.)?youtube\.com/shorts/[\w-]+'
+        ]
+        for pattern in youtube_patterns:
+            if re.match(pattern, url.strip()):
+                return True
+        return False
+
+    def download_youtube_comments(self, youtube_url: str):
+        """从 YouTube 视频下载评论（使用线程异步执行）"""
+        # 创建评论下载线程
+        self.comment_thread = CommentThread(youtube_url)
+        
+        # 连接线程信号
+        self.comment_thread.finished.connect(self.on_comment_download_finished)
+        self.comment_thread.progress.connect(self.on_comment_download_progress)
+        self.comment_thread.error.connect(self.on_comment_download_error)
+        
+        # 启动线程
+        self.comment_thread.start()
+    
+    def on_comment_download_finished(self, comments: List[Dict]):
+        """评论下载完成回调"""
+        logger.info(f"成功下载 {len(comments)} 条评论")
+        
+        # 继续处理评论字幕生成流程
+        self.process_downloaded_comments(comments)
+    
+    def on_comment_download_progress(self, value: int, status: str):
+        """评论下载进度回调"""
+        self.progress_bar.setValue(value)
+        self.status_label.setText(status)
+    
+    def on_comment_download_error(self, error: str):
+        """评论下载错误回调"""
+        logger.error(f"下载 YouTube 评论失败: {error}")
+        InfoBar.error(
+            self.tr("错误"),
+            self.tr(f"下载YouTube评论失败: {error}"),
+            duration=INFOBAR_DURATION_ERROR,
+            parent=self,
+        )
+        self.start_button.setEnabled(True)
+        self.cancel_button.hide()
+    
+    def process_downloaded_comments(self, comments: List[Dict]):
+        """处理已下载的评论"""
+        if not comments:
+            InfoBar.warning(
+                self.tr("警告"),
+                self.tr("未获取到有效的评论数据"),
+                duration=INFOBAR_DURATION_WARNING,
+                parent=self,
+            )
+            self.start_button.setEnabled(True)
+            self.cancel_button.hide()
+            return
+            
+        # 筛选高赞评论
+        self.status_label.setText(self.tr("正在筛选高赞评论..."))
+        top_comments = self.filter_top_comments(comments, self.comments_count_to_select)
+        self.progress_bar.setValue(60)
+        
+        # 计算评论显示时长
+        self.status_label.setText(self.tr("正在计算评论显示时长..."))
+        video_file = self.video_file_input.text().strip()
+        video_info = self.get_video_info(video_file)
+        if not video_info or video_info.duration_seconds == 0:
+            InfoBar.error(
+                self.tr("错误"),
+                self.tr("无法获取视频时长信息"),
+                duration=INFOBAR_DURATION_ERROR,
+                parent=self,
+            )
+            self.start_button.setEnabled(True)
+            self.cancel_button.hide()
+            return
+            
+        # 生成评论字幕
+        subtitle_data = self.generate_comment_subtitles(top_comments, video_info.duration_seconds)
+        self.progress_bar.setValue(80)
+        
+        # 显示字幕数据
+        self.model.update_all(subtitle_data)
+        self.status_label.setText(self.tr(f"已生成 {len(top_comments)} 条评论字幕"))
+        self.progress_bar.setValue(100)
+        self.start_button.setEnabled(True)
+        self.cancel_button.hide()
+        
+        InfoBar.success(
+            self.tr("完成"),
+            self.tr(f"成功生成 {len(top_comments)} 条评论字幕"),
+            duration=INFOBAR_DURATION_SUCCESS,
+            parent=self,
+        )
+
+    def load_local_comments(self, file_path: str) -> List[Dict]:
+        """加载本地评论文件"""
+        comments = []
+        try:
+            file_ext = Path(file_path).suffix.lower()
+            
+            if file_ext == '.json':
+                # 加载 JSON 格式的评论文件
+                with open(file_path, 'r', encoding='utf-8') as f:
+                    data = json.load(f)
+                
+                # 支持多种 JSON 结构
+                if isinstance(data, list):
+                    for item in data:
+                        if isinstance(item, dict):
+                            text = item.get('text', '') or item.get('content', '')
+                            votes = parse_votes(item.get('votes', '0') or item.get('likes', '0'))
+                            if text:
+                                comments.append({'text': text, 'votes': votes})
+                elif isinstance(data, dict):
+                    # 可能是 { "comments": [...] } 结构
+                    comments_data = data.get('comments', [])
+                    if isinstance(comments_data, list):
+                        for item in comments_data:
+                            if isinstance(item, dict):
+                                text = item.get('text', '') or item.get('content', '')
+                                votes = parse_votes(item.get('votes', '0') or item.get('likes', '0'))
+                                if text:
+                                    comments.append({'text': text, 'votes': votes})
+            
+            elif file_ext == '.txt':
+                # 加载 TXT 格式的评论文件
+                with open(file_path, 'r', encoding='utf-8') as f:
+                    lines = f.read().splitlines()
+                
+                for line in lines:
+                    line = line.strip()
+                    if line:
+                        comments.append({'text': line, 'votes': 0})
+            
+            logger.info(f"成功加载本地评论文件: {file_path}, 共 {len(comments)} 条评论")
+        except Exception as e:
+            logger.error(f"加载本地评论文件失败: {e}")
+            
+        return comments
+
+    def filter_top_comments(self, comments: List[Dict], count: int) -> List[Dict]:
+        """筛选高赞评论"""
+        if not comments:
+            return []
+            
+        # 按点赞数降序排序
+        sorted_comments = sorted(comments, key=lambda x: x['votes'], reverse=True)
+        
+        # 返回前 N 条评论
+        return sorted_comments[:count]
+
+    def get_video_info(self, video_path: str):
+        """获取视频信息（时长等）"""
+        from app.core.utils.video_utils import get_video_info
+        try:
+            return get_video_info(video_path)
+        except Exception as e:
+            logger.error(f"获取视频信息失败: {e}")
+            return None
+
+    def generate_comment_subtitles(self, comments: List[Dict], video_duration: float):
+        """生成评论字幕数据"""
+        if not comments or video_duration <= 0:
+            return {}
+            
+        comment_count = len(comments)
+        # 每条评论的显示时长为视频时长的 N 等分
+        segment_duration = video_duration / comment_count
+        
+        subtitle_data = {}
+        
+        for i, comment in enumerate(comments):
+            start_time = i * segment_duration
+            end_time = (i + 1) * segment_duration
+            
+            # 确保最后一条评论的结束时间不超过视频时长
+            if i == comment_count - 1:
+                end_time = video_duration
+                
+            subtitle_data[str(i + 1)] = {
+                "start_time": int(start_time * 1000),  # 转换为毫秒
+                "end_time": int(end_time * 1000),
+                "original_subtitle": comment['text'],
+                "translated_subtitle": comment['text']
+            }
+            
+        return subtitle_data
+
     def _init_ui(self):
         self.main_layout = QVBoxLayout(self)
         self.main_layout.setObjectName("main_layout")
@@ -644,7 +838,7 @@ class CommentSubtitleInterface(QWidget):
             self, self.tr("选择评论文件"), "", filter_str
         )
         if file_path:
-            self.subtitle_input.setText(file_path)
+            self.comments_source_input.setText(file_path)
 
     def on_comments_file_selected(self):
         # 构建文件过滤器
@@ -668,7 +862,7 @@ class CommentSubtitleInterface(QWidget):
             self, self.tr("选择视频文件"), "", filter_str
         )
         if file_path:
-            self.video_input.setText(file_path)
+            self.video_file_input.setText(file_path)
 
 
     def _setup_subtitle_table(self):
@@ -772,8 +966,12 @@ class CommentSubtitleInterface(QWidget):
         self.status_label.setText(self.tr("已加载文件"))
 
     def start_subtitle_optimization(self, need_create_task: bool = True) -> None:
-        # 检查是否有任务
-        if not self.subtitle_path:
+        # 检查是否有评论来源或视频文件
+        comments_source = self.comments_source_input.text().strip()
+        comments_file = self.comments_file_input.text().strip()
+        video_file = self.video_file_input.text().strip()
+        
+        if not comments_source and not comments_file:
             InfoBar.warning(
                 self.tr("警告"),
                 self.tr("请先输入评论源URL或者加载本地评论文件"),
@@ -781,36 +979,142 @@ class CommentSubtitleInterface(QWidget):
                 parent=self,
             )
             return
+            
+        if not video_file:
+            InfoBar.warning(
+                self.tr("警告"),
+                self.tr("请先选择视频文件以计算评论显示时长"),
+                duration=INFOBAR_DURATION_WARNING,
+                parent=self,
+            )
+            return
+            
         self.start_button.setEnabled(False)
         self.progress_bar.resume()
         self.progress_bar.reset()
         self.cancel_button.show()
+        
+        try:
+            # 处理评论数据
+            if comments_source:
+                # 从YouTube URL下载评论（异步）
+                if self.is_valid_youtube_url(comments_source):
+                    self.download_youtube_comments(comments_source)
+                else:
+                    InfoBar.error(
+                        self.tr("错误"),
+                        self.tr("请输入有效的YouTube视频URL"),
+                        duration=INFOBAR_DURATION_ERROR,
+                        parent=self,
+                    )
+                    self.start_button.setEnabled(True)
+                    self.cancel_button.hide()
+                    return
+            elif comments_file:
+                # 从本地文件加载评论（同步）
+                self.status_label.setText(self.tr("正在加载本地评论文件..."))
+                comments = self.load_local_comments(comments_file)
+                self.progress_bar.setValue(30)
+                
+                # 处理本地评论
+                self.process_downloaded_comments(comments)
+            
+        except Exception as e:
+            logger.error(f"处理评论字幕时出错: {e}")
+            InfoBar.error(
+                self.tr("错误"),
+                self.tr(f"处理评论字幕时出错: {str(e)}"),
+                duration=INFOBAR_DURATION_ERROR,
+                parent=self,
+            )
+            self.start_button.setEnabled(True)
+            self.cancel_button.hide()
+    
+    def is_valid_youtube_url(self, url: str) -> bool:
+        """检查是否是有效的YouTube视频URL"""
+        youtube_patterns = [
+            r'(?:https?://)?(?:www\.)?youtube\.com/watch\?v=[\w-]+',
+            r'(?:https?://)?(?:www\.)?youtu\.be/[\w-]+'
+        ]
+        for pattern in youtube_patterns:
+            if re.match(pattern, url):
+                return True
+        return False
+    
 
-        if need_create_task:
-            self.task = TaskFactory.create_subtitle_task(file_path=self.subtitle_path)
-        if self.task:
-            self.subtitle_optimization_thread = SubtitleThread(self.task)
-        self.subtitle_optimization_thread.finished.connect(
-            self.on_subtitle_optimization_finished
-        )
-        self.subtitle_optimization_thread.progress.connect(
-            self.on_subtitle_optimization_progress
-        )
-        self.subtitle_optimization_thread.update.connect(self.update_data)
-        self.subtitle_optimization_thread.update_all.connect(self.update_all)
-        self.subtitle_optimization_thread.error.connect(
-            self.on_subtitle_optimization_error
-        )
-        self.subtitle_optimization_thread.set_custom_prompt_text(
-            self.custom_prompt_text
-        )
-        self.subtitle_optimization_thread.start()
-        InfoBar.info(
-            self.tr("开始优化"),
-            self.tr("开始优化字幕"),
-            duration=INFOBAR_DURATION_INFO,
-            parent=self,
-        )
+    
+    def load_local_comments(self, file_path: str) -> list:
+        """从本地文件加载评论"""
+        comments = []
+        try:
+            file_ext = os.path.splitext(file_path)[1].lower()
+            
+            if file_ext == '.json':
+                with open(file_path, 'r', encoding='utf-8') as f:
+                    data = json.load(f)
+                    if isinstance(data, list):
+                        comments = data
+                    elif 'comments' in data:
+                        comments = data['comments']
+                        
+            elif file_ext == '.txt':
+                with open(file_path, 'r', encoding='utf-8') as f:
+                    lines = f.readlines()
+                    comments = [{'text': line.strip(), 'votes': 0} for line in lines if line.strip()]
+                    
+            else:
+                InfoBar.error(
+                    self.tr("错误"),
+                    self.tr("不支持的评论文件格式"),
+                    duration=INFOBAR_DURATION_ERROR,
+                    parent=self,
+                )
+                
+        except Exception as e:
+            logger.error(f"加载本地评论文件失败: {str(e)}")
+            InfoBar.error(
+                self.tr("错误"),
+                self.tr(f"加载本地评论文件失败: {str(e)}"),
+                duration=INFOBAR_DURATION_ERROR,
+                parent=self,
+            )
+            
+        return comments
+    
+    def filter_top_comments(self, comments: list, count: int) -> list:
+        """筛选高赞评论"""
+        # 按点赞数排序
+        sorted_comments = sorted(comments, key=lambda x: x.get('votes', 0), reverse=True)
+        # 取前N条
+        return sorted_comments[:count]
+    
+    def get_video_info(self, file_path: str) -> Optional["VideoInfo"]:
+        """获取视频信息"""
+        from app.core.utils.video_utils import get_video_info
+        return get_video_info(file_path)
+    
+    def generate_comment_subtitles(self, comments: list, video_duration: float) -> dict:
+        """生成评论字幕数据"""
+        subtitle_data = {}
+        
+        if not comments:
+            return subtitle_data
+            
+        # 计算每条评论的显示时长（视频时长的N等分）
+        comment_duration = video_duration / len(comments)
+        
+        for i, comment in enumerate(comments):
+            start_time = int(i * comment_duration * 1000)  # 转换为毫秒
+            end_time = int((i + 1) * comment_duration * 1000)
+            
+            subtitle_data[str(i + 1)] = {
+                "start_time": start_time,
+                "end_time": end_time,
+                "original_subtitle": wrap_text(comment.get('text', '')),
+                "translated_subtitle": ""
+            }
+            
+        return subtitle_data
 
     def process(self) -> None:
         """主处理函数"""
@@ -1188,16 +1492,18 @@ class CommentSubtitleInterface(QWidget):
         else:
             super().keyPressEvent(event)
 
-    def cancel_optimization(self) -> None:
-        """取消字幕校正"""
+    def cancel_optimization(self):
+        """取消字幕优化或评论下载"""
         if hasattr(self, "subtitle_optimization_thread"):
             self.subtitle_optimization_thread.stop()  # type: ignore
-            self.start_button.setEnabled(True)
-            self.cancel_button.hide()
-            self.progress_bar.resume()  # 恢复正常状态
-            self.progress_bar.setValue(0)
-            self.status_label.setText(self.tr("已取消校正"))
-            InfoBar.warning(
+        if hasattr(self, "comment_thread"):
+            self.comment_thread.stop()
+        self.start_button.setEnabled(True)
+        self.cancel_button.hide()
+        self.progress_bar.resume()  # 恢复正常状态
+        self.progress_bar.setValue(0)
+        self.status_label.setText(self.tr("已取消校正"))
+        InfoBar.warning(
                 self.tr("已取消"),
                 self.tr("字幕校正已取消"),
                 duration=INFOBAR_DURATION_WARNING,

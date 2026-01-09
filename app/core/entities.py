@@ -74,6 +74,12 @@ class SupportedSubtitleFormats(Enum):
     ASS = "ass"
     VTT = "vtt"
 
+class SupportedCommentsFormats(Enum):
+    """支持的评论格式"""
+
+    JSON = "json"
+    TXT = "txt"
+
 
 class OutputSubtitleFormatEnum(Enum):
     """字幕输出格式"""
